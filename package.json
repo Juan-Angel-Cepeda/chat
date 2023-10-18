@@ -1,0 +1,16 @@
+{
+  "name": "chat-rabbit",
+  "version": "1.0.0",
+  "description": "chat en rabbit con aws",
+  "main": "chat.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "juan-angel-cepeda",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.430.0",
+    "amqplib": "^0.10.3",
+    "aws-sdk": "^2.1475.0"
+  }
+}
