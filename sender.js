@@ -1,73 +1,58 @@
-const AWS = require('aws-sdk'),
-      {
-        SQS
-      } = require("@aws-sdk/client-sqs");
+const AWS = require('aws-sdk');
+const fs = require('fs');
 
-AWS.config.update({ region: 'us-east-1' }); // Cambia la región según tus necesidades
-
-const sqs = new SQS({ apiVersion: '2012-11-05' });
-
-const readline = require('readline');
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
+const credentials = JSON.parse(fs.readFileSync('credentials.json', 'utf8'));
+AWS.config.update({
+    accessKeyId: credentials.accessKeyId,
+    secretAccessKey: credentials.secretAccessKey,
+    region: credentials.region
 });
 
-function enviarMensaje(colaUrl) {
-  rl.question('Escribe tu mensaje: ', (mensaje) => {
+const sqs = new AWS.SQS({ apiVersion: '2012-11-05' });
+
+const participante1 = "Angel";
+const participante2 = "Legna";
+const senderQueueUrl = "https://sqs.us-east-1.amazonaws.com/045065688865/queue-user-2"; 
+const receiverQueueUrl = "https://sqs.us-east-1.amazonaws.com/045065688865/queue-user-1"; 
+
+process.stdin.on('data', (data) => {
+    const message = data.toString().trim();
     const params = {
-      MessageBody: mensaje,
-      QueueUrl: colaUrl
+        MessageBody: `${participante1}: ${message}`,
+        QueueUrl: senderQueueUrl
     };
 
     sqs.sendMessage(params, (err, data) => {
-      if (err) {
-        console.log('Error al enviar el mensaje:', err);
-      } else {
-        console.log('Mensaje enviado con éxito');
-        recibirMensaje(colaUrl); // Esperar mensaje de vuelta
-      }
-    });
-  });
-}
-
-function recibirMensaje(colaUrl) {
-  const params = {
-    AttributeNames: ['All'],
-    MaxNumberOfMessages: 1,
-    MessageAttributeNames: ['All'],
-    QueueUrl: colaUrl,
-    VisibilityTimeout: 0,
-    WaitTimeSeconds: 20
-  };
-
-  sqs.receiveMessage(params, (err, data) => {
-    if (err) {
-      console.log('Error al recibir mensajes:', err);
-    } else if (data.Messages) {
-      const mensaje = data.Messages[0];
-      console.log(`Mensaje recibido: ${mensaje.Body}`);
-
-      const deleteParams = {
-        QueueUrl: colaUrl,
-        ReceiptHandle: mensaje.ReceiptHandle
-      };
-
-      sqs.deleteMessage(deleteParams, (err, data) => {
         if (err) {
-          console.log('Error al eliminar el mensaje:', err);
+            console.error("Error al enviar el mensaje:", err);
         } else {
-          console.log('Mensaje eliminado de la cola', data);
+            console.log(`Mensaje enviado: ${participante1}: ${message}`);
         }
+    });
+});
 
-        enviarMensaje(colaUrl); // Enviar otro mensaje
-      });
-    } else {
-      recibirMensaje(colaUrl); // Esperar mensaje si no hay mensajes
-    }
-  });
+const receiveParams = {
+    QueueUrl: receiverQueueUrl,
+    WaitTimeSeconds: 20
+};
+
+function receiveMessages() {
+    sqs.receiveMessage(receiveParams, (err, data) => {
+        if (err) {
+            console.error("Error al recibir mensajes:", err);
+        } else if (data.Messages) {
+            const message = data.Messages[0];
+            console.log(`Recibido del remitente: ${message.Body}`);
+            const deleteParams = {
+                QueueUrl: receiverQueueUrl,
+                ReceiptHandle: message.ReceiptHandle
+            };
+            
+        } else {
+            console.log("No hay mensajes en la cola.");
+            receiveMessages();
+        }
+    });
 }
 
-const colaUrl = 'https://sqs.us-east-1.amazonaws.com/045065688865/queue-chat-cc23-2'; // Reemplaza con la URL de tu cola
-
-enviarMensaje(colaUrl); // Iniciar el bucle para enviar mensajes
+receiveMessages();
